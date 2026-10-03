@@ -1,0 +1,18 @@
+-- AlterTable
+ALTER TABLE "Ahorro"
+ALTER COLUMN "monto" TYPE DECIMAL(12,2)
+USING "monto"::DECIMAL(12,2);
+
+-- AlterTable
+ALTER TABLE "Prestamo"
+ALTER COLUMN "monto" TYPE DECIMAL(12,2)
+USING "monto"::DECIMAL(12,2),
+ALTER COLUMN "saldo" TYPE DECIMAL(12,2)
+USING "saldo"::DECIMAL(12,2),
+ALTER COLUMN "interes" TYPE DECIMAL(5,2)
+USING "interes"::DECIMAL(5,2);
+
+-- AlterTable
+ALTER TABLE "Movimiento"
+ALTER COLUMN "monto" TYPE DECIMAL(12,2)
+USING "monto"::DECIMAL(12,2);

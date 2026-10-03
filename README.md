@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Caja de Ahorro App
 
-## Getting Started
+Sistema de gestion para caja de ahorro (socios, ahorros, prestamos, cierres e informes) con autenticacion por usuarios y roles.
 
-First, run the development server:
+## Requisitos
+
+- Node.js 20+
+- PostgreSQL
+- Variables en `.env` (ver `.env.example`)
+
+## Configuracion
 
 ```bash
+cp .env.example .env
+# Editar DATABASE_URL y AUTH_SECRET (minimo 32 caracteres)
+
+npm install
+npm run db:migrate
+npm run db:generate
+npm run seed:admin
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abrir [http://localhost:3000](http://localhost:3000). Sin sesion redirige a `/login`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Admin inicial
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Por defecto (`npm run seed:admin`):
 
-## Learn More
+- Correo: `admin@caja.local`
+- Contrasena: `Admin123!`
+- Debe cambiar la contrasena en el primer acceso
 
-To learn more about Next.js, take a look at the following resources:
+Puede sobreescribirse con `ADMIN_EMAIL`, `ADMIN_PASSWORD` y `ADMIN_NOMBRE`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Roles
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Rol | Permisos |
+| --- | --- |
+| `ADMIN` | Todo + gestion de usuarios |
+| `OPERADOR` | Lectura y escritura operativa |
+| `SOLO_LECTURA` | Solo consultas |
 
-## Deploy on Vercel
+Los usuarios los crea un administrador en **Configuracion → Usuarios**. No hay registro publico.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Seguridad incluida
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Contrasenas con bcrypt (12 rounds)
+- Sesion JWT en cookie `httpOnly`
+- Bloqueo temporal tras 5 intentos fallidos
+- Cambio obligatorio de contrasena en primer acceso
+- Invalidacion de sesion al cambiar contrasena
+- Middleware + guards en APIs

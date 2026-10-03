@@ -1,0 +1,223 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PrestamoEstado {
+  SOLICITADO
+  APROBADO
+  ACTIVO
+  VENCIDO
+  CANCELADO
+  RECHAZADO
+}
+
+enum MovimientoTipo {
+  APORTE
+  RETIRO
+  DESEMBOLSO_PRESTAMO
+  PAGO_PRESTAMO
+  AJUSTE
+  RENDIMIENTO_AHORRO
+}
+
+enum MovimientoReferenciaTipo {
+  AHORRO
+  PRESTAMO
+  PAGO_PRESTAMO
+  RETIRO
+  AJUSTE
+  CIERRE_INTERES
+}
+
+enum CierreInteresEstado {
+  APLICADO
+}
+
+enum SocioEstado {
+  ACTIVO
+  INACTIVO
+  SUSPENDIDO
+  RETIRADO
+}
+
+enum TipoDocumento {
+  CEDULA
+  PASAPORTE
+  RUC
+  OTRO
+}
+
+enum RolUsuario {
+  ADMIN
+  OPERADOR
+  SOLO_LECTURA
+}
+
+enum EstadoUsuario {
+  ACTIVO
+  INACTIVO
+}
+
+model Usuario {
+  id                  String        @id @default(uuid())
+  nombre              String
+  email               String        @unique
+  passwordHash        String
+  rol                 RolUsuario    @default(OPERADOR)
+  estado              EstadoUsuario @default(ACTIVO)
+  debeCambiarPassword Boolean       @default(true)
+  sessionVersion      Int           @default(0)
+  failedLoginAttempts Int           @default(0)
+  lockedUntil         DateTime?
+  ultimoAccesoAt      DateTime?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  createdById         String?
+  createdBy           Usuario?      @relation("UsuarioCreadoPor", fields: [createdById], references: [id], onDelete: SetNull)
+  creados             Usuario[]     @relation("UsuarioCreadoPor")
+
+  @@index([rol])
+  @@index([estado])
+  @@index([createdAt])
+}
+
+model Socio {
+  id              String         @id @default(uuid())
+  nombre          String
+  tipoDocumento   TipoDocumento  @default(CEDULA)
+  numeroDocumento String         @unique
+  telefono        String
+  email           String?        @unique
+  direccion       String?
+  estado          SocioEstado    @default(ACTIVO)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  ahorros   Ahorro[]
+  prestamos Prestamo[]
+  movimientos Movimiento[]
+  cierresInteresDetalle CierreInteresDetalle[]
+
+  @@index([estado])
+  @@index([tipoDocumento, numeroDocumento])
+  @@index([createdAt])
+}
+
+model Ahorro {
+  id        String   @id @default(uuid())
+  monto     Decimal  @db.Decimal(12, 2)
+  fecha     DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  socio     Socio    @relation(fields: [socioId], references: [id])
+  socioId   String
+
+  @@index([socioId, fecha])
+}
+
+model Prestamo {
+  id               String         @id @default(uuid())
+  monto            Decimal        @db.Decimal(12, 2)
+  saldo            Decimal        @db.Decimal(12, 2)
+  interes          Decimal        @db.Decimal(5, 2)
+  tasaMora         Decimal        @default(0) @db.Decimal(5, 2)
+  interesPendiente Decimal        @default(0) @db.Decimal(12, 2)
+  moraPendiente    Decimal        @default(0) @db.Decimal(12, 2)
+  fechaVencimiento DateTime?
+  ultimoCalculoAt  DateTime?
+  estado           PrestamoEstado @default(SOLICITADO)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  socio     Socio    @relation(fields: [socioId], references: [id])
+  socioId   String
+  pagos     PrestamoPago[]
+
+  @@index([socioId, estado])
+  @@index([createdAt])
+  @@index([fechaVencimiento])
+}
+
+model PrestamoPago {
+  id               String   @id @default(uuid())
+  prestamoId       String
+  monto            Decimal  @db.Decimal(12, 2)
+  interesPagado    Decimal  @default(0) @db.Decimal(12, 2)
+  moraPagada       Decimal  @default(0) @db.Decimal(12, 2)
+  capitalPagado    Decimal  @default(0) @db.Decimal(12, 2)
+  saldoAnterior    Decimal  @db.Decimal(12, 2)
+  saldoNuevo       Decimal  @db.Decimal(12, 2)
+  interesGenerado  Decimal  @default(0) @db.Decimal(12, 2)
+  moraGenerada     Decimal  @default(0) @db.Decimal(12, 2)
+  interesPendiente Decimal  @default(0) @db.Decimal(12, 2)
+  moraPendiente    Decimal  @default(0) @db.Decimal(12, 2)
+  fechaPago        DateTime @default(now())
+  createdAt        DateTime @default(now())
+
+  prestamo Prestamo @relation(fields: [prestamoId], references: [id], onDelete: Cascade)
+
+  @@index([prestamoId, fechaPago])
+  @@index([createdAt])
+}
+
+model Movimiento {
+  id               String         @id @default(uuid())
+  tipo             MovimientoTipo
+  monto            Decimal        @db.Decimal(12, 2)
+  descripcion      String?
+  referenciaTipo   MovimientoReferenciaTipo?
+  referenciaId     String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  socio     Socio    @relation(fields: [socioId], references: [id])
+  socioId   String
+
+  @@index([socioId, createdAt])
+  @@index([tipo, createdAt])
+  @@index([referenciaTipo, referenciaId])
+}
+
+model CierreInteresMensual {
+  id                 String              @id @default(uuid())
+  anio               Int
+  mes                Int
+  periodoInicio      DateTime
+  periodoFin         DateTime
+  interesBruto       Decimal             @db.Decimal(12, 2)
+  porcentajeEmpresa  Decimal             @db.Decimal(5, 2)
+  porcentajeSocios   Decimal             @db.Decimal(5, 2)
+  reservaEmpresa     Decimal             @db.Decimal(12, 2)
+  bolsaSocios        Decimal             @db.Decimal(12, 2)
+  estado             CierreInteresEstado @default(APLICADO)
+  aplicadoAt         DateTime            @default(now())
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  detalles CierreInteresDetalle[]
+
+  @@unique([anio, mes])
+  @@index([aplicadoAt])
+}
+
+model CierreInteresDetalle {
+  id               String   @id @default(uuid())
+  cierreId         String
+  socioId          String
+  saldoPromedio    Decimal  @db.Decimal(12, 2)
+  participacionPct Decimal  @db.Decimal(8, 4)
+  montoAsignado    Decimal  @db.Decimal(12, 2)
+  ahorroId         String?
+  createdAt        DateTime @default(now())
+
+  cierre CierreInteresMensual @relation(fields: [cierreId], references: [id], onDelete: Cascade)
+  socio  Socio                @relation(fields: [socioId], references: [id])
+
+  @@index([cierreId])
+  @@index([socioId])
+}
