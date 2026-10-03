@@ -5,11 +5,48 @@ EXCEPTION
   WHEN duplicate_object THEN null;
 END $$;
 
--- AlterEnum MovimientoReferenciaTipo
+-- CreateEnum MovimientoReferenciaTipo (antes era TEXT en Movimiento.referenciaTipo)
 DO $$ BEGIN
-  ALTER TYPE "MovimientoReferenciaTipo" ADD VALUE 'CIERRE_INTERES';
+  CREATE TYPE "MovimientoReferenciaTipo" AS ENUM (
+    'AHORRO',
+    'PRESTAMO',
+    'PAGO_PRESTAMO',
+    'RETIRO',
+    'AJUSTE',
+    'CIERRE_INTERES'
+  );
 EXCEPTION
   WHEN duplicate_object THEN null;
+END $$;
+
+-- Convertir columna TEXT -> enum (idempotente)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'Movimiento'
+      AND column_name = 'referenciaTipo'
+      AND udt_name = 'text'
+  ) THEN
+    ALTER TABLE "Movimiento"
+      ALTER COLUMN "referenciaTipo" TYPE "MovimientoReferenciaTipo"
+      USING (
+        CASE
+          WHEN "referenciaTipo" IS NULL THEN NULL
+          WHEN "referenciaTipo" IN (
+            'AHORRO',
+            'PRESTAMO',
+            'PAGO_PRESTAMO',
+            'RETIRO',
+            'AJUSTE',
+            'CIERRE_INTERES'
+          ) THEN "referenciaTipo"::"MovimientoReferenciaTipo"
+          ELSE NULL
+        END
+      );
+  END IF;
 END $$;
 
 -- CreateEnum
